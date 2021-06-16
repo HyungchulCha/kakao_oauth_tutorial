@@ -1,10 +1,10 @@
-import express from 'express';
-import jwt from 'jsonwebtoken';
-import axios from 'axios';
-import cors from 'cors';
-import querystring from 'querystring';
-import cookieParser from 'cookie-parser';
-import {
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const axios = require('axios');
+const cors = require('cors');
+const querystring = require('querystring');
+const cookieParser = require('cookie-parser');
+const {
   COOKIE_NAME,
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
@@ -12,7 +12,7 @@ import {
   SERVER_REDIRECT_URI,
   SERVER_ROOT_URI,
   UI_ROOT_URI,
-} from './config';
+} = require('./config');
 
 const port = 4000;
 const app = express();
