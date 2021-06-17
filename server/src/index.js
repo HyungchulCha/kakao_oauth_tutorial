@@ -4,15 +4,7 @@ const axios = require('axios');
 const cors = require('cors');
 const querystring = require('querystring');
 const cookieParser = require('cookie-parser');
-const {
-  COOKIE_NAME,
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
-  JWT_SECRET,
-  SERVER_REDIRECT_URI,
-  SERVER_ROOT_URI,
-  UI_ROOT_URI,
-} = require('./config');
+const { COOKIE_NAME, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, JWT_SECRET, SERVER_REDIRECT_URI, SERVER_ROOT_URI, UI_ROOT_URI } = require('./config');
 
 const port = 4000;
 const app = express();
@@ -33,9 +25,7 @@ function getGoogleAuthURL() {
     access_type: 'offline',
     response_type: 'code',
     prompt: 'consent',
-    scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'].join(
-      ' '
-    ),
+    scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'].join(' '),
   };
   return `${rootUrl}?${querystring.stringify(options)}`;
 }
@@ -77,7 +67,7 @@ app.get(`${SERVER_REDIRECT_URI}`, async (req, res) => {
     redirectUri: `${SERVER_ROOT_URI}${SERVER_REDIRECT_URI}`,
   });
   const googleUser = await axios
-    .get(`https://www.googleapis.com/oauth2/v1/user/userinfo?alt=json&access_token=${access_token}`, {
+    .get(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`, {
       headers: {
         Authorization: `Bearer ${id_token}`,
       },
