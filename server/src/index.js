@@ -4,7 +4,15 @@ const axios = require('axios');
 const cors = require('cors');
 const querystring = require('querystring');
 const cookieParser = require('cookie-parser');
-const { COOKIE_NAME, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, JWT_SECRET, SERVER_REDIRECT_URI, SERVER_ROOT_URI, UI_ROOT_URI } = require('./config');
+const {
+  COOKIE_NAME,
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  JWT_SECRET,
+  SERVER_REDIRECT_URI,
+  SERVER_ROOT_URI,
+  UI_ROOT_URI,
+} = require('./config');
 
 const port = 4000;
 const app = express();
@@ -25,14 +33,16 @@ function getGoogleAuthURL() {
     access_type: 'offline',
     response_type: 'code',
     prompt: 'consent',
-    scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'].join(' '),
+    scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'].join(
+      ' '
+    ),
   };
   return `${rootUrl}?${querystring.stringify(options)}`;
 }
 
 // Getting login URL
 app.get('/auth/google/url', (req, res) => {
-  return res.send(getGoogleAuthURL());
+  return res.redirect(getGoogleAuthURL());
 });
 
 function getTokens({ code, clientId, clientSecret, redirectUri }) {
@@ -60,12 +70,15 @@ function getTokens({ code, clientId, clientSecret, redirectUri }) {
 // Getting the user from Google with the code
 app.get(`${SERVER_REDIRECT_URI}`, async (req, res) => {
   const code = req.query.code;
-  const { id_token, access_token } = await getTokens({
+  const { id_token, access_token, expires_in, token_type, scope, refresh_token } = await getTokens({
     code,
     clientId: GOOGLE_CLIENT_ID,
     clientSecret: GOOGLE_CLIENT_SECRET,
     redirectUri: `${SERVER_ROOT_URI}${SERVER_REDIRECT_URI}`,
   });
+
+  console.log(id_token, '\n', access_token, '\n', expires_in, '\n', token_type, '\n', scope, '\n', refresh_token);
+
   const googleUser = await axios
     .get(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`, {
       headers: {
@@ -88,7 +101,7 @@ app.get(`${SERVER_REDIRECT_URI}`, async (req, res) => {
 
 // Getting the current user
 app.get('/auth/me', (req, res) => {
-  console.log('get me');
+  console.log('get me', req.cookie[COOKIE_NAME]);
   try {
     const decoded = jwt.verify(req.cookie[COOKIE_NAME], JWT_SECRET);
     console.log('decoded: ', decoded);
