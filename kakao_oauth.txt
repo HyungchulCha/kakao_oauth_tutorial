@@ -171,3 +171,250 @@ Request
 POST /oauth/token HTTP/1.1
 Host: kauth.kakao.com
 Content-type: application/x-www-form-urlencoded;charset=utf-8
+  grant_type=refresh_token&
+  client_id=clientId&
+  refresh_token=refreshToken&
+  (선택)client_secret
+
+Response
+
+HTTP/1.1 200 OK
+Content-Type: application/json;charset=UTF-8
+{
+    "access_token":"{ACCESS_TOKEN}",
+    "token_type":"bearer",
+    "refresh_token":"{REFRESH_TOKEN}",  //optional
+    "refresh_token_expires_in":25184000,  //optional
+    "expires_in":43199,
+}
+
+
+
+8) 동의 내역 확인하기
+
+Request
+
+GET /v2/user/scopes HTTP/1.1
+Host: kapi.kakao.com
+Authorization: Bearer {ACCESS_TOKEN}
+  (선택)scopes	String[]	특정 동의 항목에 대한 동의 내역만 불러오려는 경우 사용, 동의 항목의 ID 목록, 쉼표(,)를 구분자로 여러 ID를 하나의 문자열에 담아 전달
+
+GET /v2/user/scopes HTTP/1.1
+Host: kapi.kakao.com
+Authorization: KakaoAK {APP_ADMIN_KEY}
+  target_id_type	String	회원번호 종류, user_id로 고정
+  target_id	      Long    서비스에서 로그아웃시킬 사용자의 회원번호
+  (선택)scopes
+
+Response
+
+{
+    "id":123456789,
+    "scopes":[
+        {
+            "id":"profile",
+            "display_name":"Profile Info(nickname/profile image)",
+            "type":"PRIVACY",
+            "using":true,           // 동의 항목 사용 여부
+            "agreed":true,          // 사용자 동의 여부
+            "revocable":false       // 동의 철회 가능 여부, "agreed"가 "true"일 경우에만 반환
+        },
+        {
+            "id":"account_email",
+            "display_name":"Email",
+            "type":"PRIVACY",
+            "using":true,           // 동의 항목 사용 여부
+            "agreed":true,          // 사용자 동의 여부
+            "revocable":true        // 동의 철회 가능 여부, "agreed"가 "true"일 경우에만 반환
+        },
+        {
+            "id":"shipping_address",
+            "display_name":"Shipping information (receiver, shipping address, phone number)",
+            "type":"PRIVACY",
+            "using":true,           // 동의 항목 사용 여부
+            "agreed":false         // 사용자 동의 여부 
+        },
+        ...
+    ]
+}
+
+Response: 이메일, 카카오 서비스 내 친구 목록에 대한 동의 내역
+
+{
+    "id":123456789,
+    "scopes":
+    [
+        {
+            "id":"friends",
+            "display_name":"Friends in Kakao services",
+            "type":"PRIVACY",
+            "using":true,
+            "agreed":true,
+            "revocable":false
+        },
+        {
+            "id":"account_email",
+            "display_name":"Email",
+            "type":"PRIVACY",
+            "using":true,
+            "agreed":false
+        }
+    ]
+}
+
+
+
+9) 사용자 정보 가져오기
+GET/POST /v2/user/me HTTP/1.1
+Host: kapi.kakao.com
+Authorization: Bearer {ACCESS_TOKEN}
+Content-type: application/x-www-form-urlencoded;charset=utf-8
+  secure_resource	Boolean	이미지 URL 값 HTTPS 여부, true 설정 시 HTTPS 사용, 기본 값 false	X
+  property_keys	String[]	Property 키 목록, JSON Array를 ["properties.nickname"]과 같은 형식으로 사용	X
+
+GET/POST /v2/user/me HTTP/1.1
+Host: kapi.kakao.com
+Authorization: KakaoAK {APP_ADMIN_KEY}
+Content-type: application/x-www-form-urlencoded;charset=utf-8
+  target_id_type	String	회원번호 종류, user_id로 고정	O
+  target_id	Long	서비스에서 로그아웃시킬 사용자의 회원번호	O
+  secure_resource	Boolean	이미지 URL 값 HTTPS 여부, true 설정 시 HTTPS 사용, 기본 값 false	X
+  property_keys	String[]	Property 키 목록, JSON Array를 ["properties.nickname"]과 같은 형식으로 사용	X
+
+property_keys
+properties.nickname	서비스에서 쓰이는 사용자 닉네임, 기본 값은 앱연결시의 카카오계정 닉네임
+properties.profile_image	서비스에서 쓰이는 사용자 프로필 사진 URL, 기본 값은 앱연결시의 카카오계정 프로필 사진 URL(640* 640)
+properties.thumbnail_image	서비스에서 쓰이는 사용자 썸네일 이미지 URL, 기본 값은 앱 연결 시의 카카오계정 썸네일 프로필 사진 URL(110* 110)
+kakao_account.profile	카카오계정의 프로필 소유 여부, 실시간 닉네임과 프로필 사진 URL
+kakao_account.email	카카오계정의 이메일 소유 여부, 이메일 값, 이메일 인증 여부, 이메일 유효 여부
+kakao_account.age_range	카카오계정의 연령대 소유 여부, 연령대 값
+kakao_account.birthday	카카오계정의 생일 소유 여부, 생일 값
+kakao_account.gender	카카오계정의 성별 소유 여부, 성별 값
+
+Request: 액세스 토큰 사용하여 모든 정보 받기
+curl -v -X GET "https://kapi.kakao.com/v2/user/me" \
+  -H "Authorization: Bearer {ACCESS_TOKEN}"
+
+Request: 액세스 토큰 사용하여 email 정보 받기
+curl -v -X POST "https://kapi.kakao.com/v2/user/me" \
+  -H "Authorization: Bearer {ACCESS_TOKEN}" \
+  -d 'property_keys=["kakao_account.email"]'
+
+Request: 어드민 키 사용하여 email 정보 받기
+curl -v -X POST "https://kapi.kakao.com/v2/user/me" \
+  -H "Authorization: KakaoAK {APP_ADMIN_KEY}" \
+  -d "target_id_type=user_id" \
+  -d "target_id=123456789"  \
+  -d 'property_keys=["kakao_account.email"]'
+
+Response
+id	Long	회원번호	O
+has_signed_up	Boolean	자동 연결 설정을 비활성화한 경우만 존재, 연결하기 호출의 완료 여부, false: 연결 대기(Preregistered) 상태, true: 연결(Registered) 상태	X
+connected_at	Datetime	서비스에 연결 완료된 시각, UTC*	X
+synched_at	Datetime	카카오싱크 간편가입을 통해 로그인한 시각, UTC*	X
+properties	JSON	사용자 프로퍼티(Property), 설정하기 > 사용자 프로퍼티 참고	X
+kakao_account	JSON	카카오계정 정보	X
+
+kakao_account
+profile_needs_agreement	Boolean	사용자 동의 시 프로필 정보(닉네임/프로필 사진) 제공 가능
+
+필요한 동의 항목: 프로필 정보(닉네임/프로필 사진)	X
+profile	JSON	프로필 정보
+
+필요한 동의 항목: 프로필 정보(닉네임/프로필 사진)	X
+email_needs_agreement	Boolean	사용자 동의 시 카카오계정 대표 이메일 제공 가능
+
+필요한 동의 항목: 카카오계정(이메일)	X
+is_email_valid	Boolean	이메일 유효 여부
+true: 유효한 이메일
+false: 이메일이 다른 카카오계정에 사용돼 만료
+
+필요한 동의 항목: 카카오계정(이메일)	X
+is_email_verified	Boolean	이메일 인증 여부
+true: 인증된 이메일
+false: 인증되지 않은 이메일
+
+필요한 동의 항목: 카카오계정(이메일)	X
+email	String	카카오계정 대표 이메일
+
+필요한 동의 항목: 카카오계정(이메일)	X
+age_range_needs_agreement	Boolean	사용자 동의 시 연령대 제공 가능
+
+필요한 동의 항목: 연령대	X
+age_range	String	연령대
+1~9: 1세 이상 10세 미만
+10~14: 10세 이상 15세 미만
+15~19: 15세 이상 20세 미만
+20~29: 20세 이상 30세 미만
+30~39: 30세 이상 40세 미만
+40~49: 40세 이상 50세 미만
+50~59: 50세 이상 60세 미만
+60~69: 60세 이상 70세 미만
+70~79: 70세 이상 80세 미만
+80~89: 80세 이상 90세 미만
+90~: 90세 이상
+
+필요한 동의 항목: 연령대	X
+birthyear_needs_agreement	Boolean	사용자 동의 시 출생 연도 제공 가능
+
+필요한 동의 항목: 출생 연도	X
+birthyear	String	출생 연도(YYYY 형식)
+
+필요한 동의 항목: 출생 연도	X
+birthday_needs_agreement	Boolean	사용자 동의 시 생일 제공 가능
+
+필요한 동의 항목: 생일	X
+birthday	String	생일(MMDD 형식)
+
+필요한 동의 항목: 생일	X
+birthday_type	String	생일 타입
+SOLAR(양력) 또는 LUNAR(음력)
+
+필요한 동의 항목: 생일	X
+gender_needs_agreement	Boolean	사용자 동의 시 성별 제공 가능
+
+필요한 동의 항목: 성별	X
+gender	String	성별
+female: 여성
+male: 남성
+
+필요한 동의 항목: 성별	X
+phone_number_needs_agreement	Boolean	사용자 동의 시 전화번호 제공 가능
+
+필요한 동의 항목: 카카오계정(전화번호)	X
+phone_number	String	카카오계정의 전화번호
+국내 번호인 경우 +82 00-0000-0000 형식
+해외 번호인 경우 자릿수와 '-'의 유무나 위치가 다를 수 있음
+(참고: libphonenumber)
+
+필요한 동의 항목: 카카오계정(전화번호)	X
+ci_needs_agreement	Boolean	사용자 동의 시 CI 참고 가능
+
+필요한 동의 항목: CI(연계정보)	X
+ci	String	연계정보
+
+필요한 동의 항목: CI(연계정보)	X
+ci_authenticated_at	Datetime	CI 발급 시각, UTC*
+
+필요한 동의 항목: CI(연계정보)	X
+* 시간 정보는 UTC 기준으로, 한국 시간(KST)과 9시간 차이가 납니다. 시간 형식에 관한 자세한 정보는 RFC3339: Date and Time on the Internet를 참고합니다.
+
+profile
+Name	Type	Description	Required
+nickname	String	닉네임
+
+필요한 동의 항목: 프로필 정보(닉네임/프로필 사진)	X
+thumbnail_image_url	String	프로필 미리보기 이미지 URL
+110px * 110px 또는 100px * 100px
+
+필요한 동의 항목: 프로필 정보(닉네임/프로필 사진)	X
+profile_image_url	String	프로필 이미지 URL
+640px * 640px 또는 480px * 480px
+
+필요한 동의 항목: 프로필 정보(닉네임/프로필 사진)	X
+is_default_image	Boolean	프로필 이미지 URL이 기본 프로필 이미지 URL인지 여부
+사용자가 등록한 프로필 이미지가 없을 경우, 기본 프로필 이미지 제공
+true: 기본 프로필 이미지
+false: 사용자가 등록한 프로필 이미지
+
+필요한 동의 항목: 프로필 정보(닉네임/프로필 사진)
