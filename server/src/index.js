@@ -4,7 +4,16 @@ const axios = require('axios');
 const cors = require('cors');
 const querystring = require('querystring');
 const cookieParser = require('cookie-parser');
-const { COOKIE_NAME, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, JWT_SECRET, SERVER_REDIRECT_URI, SERVER_ROOT_URI, UI_ROOT_URI } = require('./config');
+const {
+  COOKIE_NAME,
+  KAKAO_CLIENT_ID,
+  KAKAO_SECRET_ID,
+  JWT_SECRET,
+  SERVER_REDIRECT_URI,
+  SERVER_LOGOUT_URI,
+  SERVER_ROOT_URI,
+  UI_ROOT_URI,
+} = require('./config');
 
 const port = 4000;
 const app = express();
@@ -17,26 +26,24 @@ app.use(
 );
 app.use(cookieParser());
 
-function getGoogleAuthURL() {
-  const rootUrl = 'https://accounts.google.com/o/oauth2/v2/auth';
+function getKakaoAuthURL() {
+  const rootUrl = 'https://kauth.kakao.com/oauth/authorize';
   const options = {
+    client_id: KAKAO_CLIENT_ID,
     redirect_uri: `${SERVER_ROOT_URI}${SERVER_REDIRECT_URI}`,
-    client_id: GOOGLE_CLIENT_ID,
-    access_type: 'offline',
     response_type: 'code',
-    prompt: 'consent',
-    scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'].join(' '),
+    prompt: 'login',
   };
   return `${rootUrl}?${querystring.stringify(options)}`;
 }
 
 // Getting login URL
-app.get('/auth/google/url', (req, res) => {
-  return res.redirect(getGoogleAuthURL());
+app.get('/auth/kakao/url', (req, res) => {
+  return res.redirect(getKakaoAuthURL());
 });
 
 function getTokens({ code, clientId, clientSecret, redirectUri }) {
-  const url = 'https://oauth2.googleapis.com/token';
+  const url = 'https://kauth.kakao.com/oauth/token';
   const values = {
     code,
     client_id: clientId,
@@ -47,7 +54,7 @@ function getTokens({ code, clientId, clientSecret, redirectUri }) {
   return axios
     .post(url, querystring.stringify(values), {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
       },
     })
     .then((res) => res.data)
@@ -60,28 +67,17 @@ function getTokens({ code, clientId, clientSecret, redirectUri }) {
 // Getting the user from Google with the code
 app.get(`${SERVER_REDIRECT_URI}`, async (req, res) => {
   const code = req.query.code;
-  const { id_token, access_token, expires_in, token_type, scope, refresh_token } = await getTokens({
+  const { token_type, access_token, expires_in, refresh_token, refresh_token_expires_in, scope } = await getTokens({
     code,
-    clientId: GOOGLE_CLIENT_ID,
-    clientSecret: GOOGLE_CLIENT_SECRET,
+    clientId: KAKAO_CLIENT_ID,
+    clientSecret: KAKAO_SECRET_ID,
     redirectUri: `${SERVER_ROOT_URI}${SERVER_REDIRECT_URI}`,
   });
 
-  console.log(id_token, '\n', access_token, '\n', expires_in, '\n', token_type, '\n', scope, '\n', refresh_token);
+  console.log(token_type, access_token, expires_in, refresh_token, refresh_token_expires_in, scope);
 
-  const googleUser = await axios
-    .get(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${access_token}`, {
-      headers: {
-        Authorization: `Bearer ${id_token}`,
-      },
-    })
-    .then((res) => res.data)
-    .catch((err) => {
-      console.error('Failed to fetch user');
-      throw new Error(err.message);
-    });
-  const token = jwt.sign(googleUser, JWT_SECRET);
-  res.cookie(COOKIE_NAME, token, {
+  // const token = jwt.sign(kakaoUser, JWT_SECRET);
+  res.cookie(COOKIE_NAME, access_token, {
     maxAge: expires_in * 1000,
     httpOnly: true,
     secure: false,
@@ -90,15 +86,47 @@ app.get(`${SERVER_REDIRECT_URI}`, async (req, res) => {
 });
 
 // Getting the current user
-app.get('/auth/me', (req, res) => {
-  console.log('cookie', req);
-  try {
-    const decoded = jwt.verify(req.cookies[COOKIE_NAME], JWT_SECRET);
-    console.log('decoded: ', decoded);
-    return res.send(decoded);
-  } catch (err) {
-    console.log(err);
+app.get('/auth/me', async (req, res) => {
+  const access_token = req.cookies[COOKIE_NAME];
+  if (access_token != null) {
+    const kakaoUser = await axios
+      .get(`https://kapi.kakao.com/v2/user/me`, {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          'Content-Type': `application/x-www-form-urlencoded;charset=utf-8`,
+        },
+      })
+      .then((res) => res.data)
+      .catch((err) => {
+        console.error('Failed to fetch user');
+        throw new Error(err.message);
+      });
+
+    return res.send(kakaoUser);
+  } else {
     res.send(null);
+  }
+});
+
+function kakaoAuthLogout() {
+  const rootUrl = 'https://kauth.kakao.com/oauth/logout';
+  const options = {
+    client_id: KAKAO_CLIENT_ID,
+    logout_redirect_uri: `${SERVER_ROOT_URI}${SERVER_LOGOUT_URI}`,
+    state: 'kakao_oauth_tutorial',
+  };
+  return `${rootUrl}?${querystring.stringify(options)}`;
+}
+app.get('/auth/kakao/logout/url', (req, res) => {
+  res.redirect(kakaoAuthLogout());
+});
+
+app.get('/auth/kakao/logout', (req, res) => {
+  if (req.query.state === 'kakao_oauth_tutorial') {
+    res.clearCookie(COOKIE_NAME);
+    res.redirect(UI_ROOT_URI);
+  } else {
+    res.status(404);
   }
 });
 

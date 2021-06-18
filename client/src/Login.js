@@ -16,12 +16,17 @@ function Login() {
   }, []);
 
   if (me) {
-    return <p>hi {JSON.stringify(me)}</p>;
+    return (
+      <div>
+        <p>hi {JSON.stringify(me)}</p>
+        <a href='http://localhost:4000/auth/kakao/logout/url'>로그아웃</a>
+      </div>
+    );
   }
 
   return (
     <div className='App'>
-      <a href='http://localhost:4000/auth/google/url'>LOGIN WITH GOOGLE</a>
+      <a href='http://localhost:4000/auth/kakao/url'>LOGIN WITH KAKAO</a>
     </div>
   );
 }

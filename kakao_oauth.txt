@@ -53,11 +53,11 @@ Location: {REDIRECT_URI}?error=access_denied&error_description=User%20denied%20a
 POST /oauth/token HTTP/1.1
 Host: kauth.kakao.com
 Content-type: application/x-www-form-urlencoded;charset=utf-8
-  grant_type=authorization_code&
-  client_id=clientId&
-  redirect_uri=redirectUri&
   code=authorizationCode&
+  client_id=clientId&
   (선택)client_secret
+  redirect_uri=redirectUri&
+  grant_type=authorization_code&
 
 Response  
 token_type                String	토큰 타입, bearer로 고정
