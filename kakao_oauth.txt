@@ -1,0 +1,173 @@
+Google Oauth 2.0 REST API
+
+
+
+1) 인가코드 발급
+GET /oauth/authorize?client_id={REST_API_KEY}&redirect_uri={REDIRECT_URI}&response_type=code HTTP/1.1
+Host: kauth.kakao.com
+  client_id=clientId&
+  redirect_uri=redirectUri&
+  response_type=code&
+  (선택)state
+  (선택)prompt(login, none)
+
+Response
+code              String	토큰 받기 요청에 필요한 인가 코드
+state             String	CSRF 공격을 차단하기 위해 사용되는 파라미터로, 요청으로 보낸 state 값과 동일한 state 값이 전달됨
+error             String	인증 실패 시 반환되는 에러 코드
+error_description String	인증 실패 시 반환되는 에러 메시지
+
+Error Message
+access_denied         User denied access	
+  사용자가 로그인을 취소한 것이므로, 초기 화면으로 이동시키는 등의 조치가 필요합니다.
+access_denied         Not allowed under age 14	
+  만 14세 미만 사용자의 보호자 동의에 실패한 것이므로, 초기 화면으로 이동시키는 등의 조치가 필요합니다.
+login_required        user authentication required.	
+  prompt 파라미터 값을 none으로 전달했으나, 사용자의 카카오계정 인증이 필요한 경우입니다.
+consent_required      user authentication required.	
+  prompt 파라미터 값을 none으로 전달했으나, 동의 화면을 통한 사용자 동의가 필요한 경우입니다.
+interaction_required  need to collect additional personal information.	
+  prompt 파라미터 값을 none으로 전달했으나, 사용자 정보 추가 제공 등 기타 사용자 동작이 필요한 경우입니다.
+
+https://kauth.kakao.com/oauth/authorize?response_type=code&client_id={REST_API_KEY}&redirect_uri={REDIRECT_URI}
+https://kauth.kakao.com/oauth/authorize?response_type=code&client_id={REST_API_KEY}&redirect_uri={REDIRECT_URI}&prompt=none
+
+Response: 사용자가 [동의하고 계속하기] 선택, 로그인 진행
+HTTP/1.1 302 Found
+Content-Length: 0
+Location: {REDIRECT_URI}?code={AUTHORIZE_CODE}
+
+Response: prompt=none 파라미터 전달, 사용자 동의가 필요해 에러 응답
+HTTP/1.1 302 Found
+Content-Length: 0
+Location: {REDIRECT_URI}?error=consent_required&error_description=user%20consent%20required.
+
+Response: 로그인 취소
+HTTP/1.1 302 Found
+Content-Length: 0
+Location: {REDIRECT_URI}?error=access_denied&error_description=User%20denied%20access
+
+
+
+2) 사용자 정보 및 토큰 발급
+POST /oauth/token HTTP/1.1
+Host: kauth.kakao.com
+Content-type: application/x-www-form-urlencoded;charset=utf-8
+  grant_type=authorization_code&
+  client_id=clientId&
+  redirect_uri=redirectUri&
+  code=authorizationCode&
+  (선택)client_secret
+
+Response  
+token_type                String	토큰 타입, bearer로 고정
+access_token	            String	사용자 액세스 토큰 값
+expires_in                Integer	액세스 토큰 만료 시간(초)
+refresh_token             String	사용자 리프레시 토큰 값
+refresh_token_expires_in  Integer	리프레시 토큰 만료 시간(초)
+scope	                    String	인증된 사용자의 정보 조회 권한 범위, 범위가 여러 개일 경우, 공백으로 구분
+
+HTTP/1.1 200 OK
+Content-Type: application/json;charset=UTF-8
+{
+    "token_type":"bearer",
+    "access_token":"{ACCESS_TOKEN}",
+    "expires_in":43199,
+    "refresh_token":"{REFRESH_TOKEN}",
+    "refresh_token_expires_in":25184000,
+    "scope":"account_email profile"
+}
+
+
+
+3) 로그아웃
+POST /v1/user/logout HTTP/1.1
+Host: kapi.kakao.com
+Authorization: Bearer {ACCESS_TOKEN}
+
+POST /v1/user/logout HTTP/1.1
+Host: kapi.kakao.com
+Authorization: KakaoAK {APP_ADMIN_KEY}
+  target_id_type	String	회원번호 종류, user_id로 고정
+  target_id	      Long    서비스에서 로그아웃시킬 사용자의 회원번호
+
+Response
+id  Long  로그아웃된 사용자의 회원번호
+
+
+
+4) 카카오 계정과 힘께 로그아웃
+Request
+GET /oauth/logout?client_id={REST_API_KEY}&logout_redirect_uri={LOGOUT_REDIRECT_URI} HTTP/1.1
+Host: kauth.kakao.com
+  client_id=clientId&
+  logout_redirect_uri=logoutRedirectUri&
+  (선택)state
+
+curl -v -X GET "https://kauth.kakao.com/oauth/logout?client_id={YOUR_REST_API_KEY}&logout_redirect_uri={YOUR_LOGOUT_REDIRECT_URI}"
+
+Response
+state String  요청으로 보낸 state 값과 동일한 state 값이 전달됨
+
+HTTP/1.1 302 Found
+Location: {LOGOUT_REDIRECT_URI}?state={STATE}
+
+
+
+5) 연결끊기
+
+Request
+
+POST /v1/user/unlink HTTP/1.1
+Host: kapi.kakao.com
+Authorization: Bearer {ACCESS_TOKEN}
+
+curl -v -X POST "https://kapi.kakao.com/v1/user/unlink" \
+  -H "Authorization: Bearer {ACCESS_TOKEN}"
+
+POST /v1/user/unlink HTTP/1.1
+Host: kapi.kakao.com
+Authorization: KakaoAK {APP_ADMIN_KEY}
+  target_id_type	String	회원번호 종류, user_id로 고정
+  target_id	      Long    서비스에서 로그아웃시킬 사용자의 회원번호
+
+curl -v -X POST "https://kapi.kakao.com/v1/user/unlink" \
+  -H "Authorization: KakaoAK {APP_ADMIN_KEY}" \
+  -d "target_id_type=user_id" \
+  -d "target_id=123456789" 
+
+Response
+
+{
+  "id": 123456789
+}
+
+
+
+6) 토큰 정보보기
+
+Request
+
+GET /v1/user/access_token_info HTTP/1.1
+Host: kapi.kakao.com
+Authorization: Bearer {ACCESS_TOKEN}
+Content-type: application/x-www-form-urlencoded;charset=utf-8
+
+Response
+
+HTTP/1.1 200 OK
+{
+    "id":123456789,
+    "expires_in": 7199,
+    "app_id":1234
+}
+
+
+
+7) 토큰 갱신하기
+
+Request
+
+POST /oauth/token HTTP/1.1
+Host: kauth.kakao.com
+Content-type: application/x-www-form-urlencoded;charset=utf-8
